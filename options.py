@@ -8,10 +8,10 @@ def parse_common_args(parser):
     parser.add_argument('--load_model_path', type=str, default='checkpoints/base_model_pref/0.pth',
                         help='model path for pretrain or test')
     parser.add_argument('--load_not_strict', action='store_true', help='allow to load only common state dicts')
-    parser.add_argument('--val_list', type=str, default='/data/dataset1/list/base/val.txt',
+    parser.add_argument('--val_list', type=str, default='/dataset/dataset1/list/base/val.txt',
                         help='val list in train, test list path in test')
     parser.add_argument('--gpu', default='0', help='number of gpus')
-    parser.add_argument('--dataset', '-data', type=str, default='mnist', choices=['mnist', 'fashionmnist', 'cifar10'],
+    parser.add_argument('--dataset', '-dataset', type=str, default='mnist', choices=['mnist', 'fashionmnist', 'cifar10'],
                         help='the train dataset')
     return parser
 
