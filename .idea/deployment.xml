@@ -1,7 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="PublishConfigData" autoUpload="Always" serverName="daipl@10.134.147.182:22 password" remoteFilesAllowedToDisappearOnAutoupload="false">
+  <component name="PublishConfigData" autoUpload="Always" serverName="3090 (project level)" remoteFilesAllowedToDisappearOnAutoupload="false" confirmBeforeUploading="false">
+    <option name="confirmBeforeUploading" value="false" />
     <serverData>
+      <paths name="2080">
+        <serverdata>
+          <mappings>
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
       <paths name="3090">
         <serverdata>
           <mappings>
@@ -9,10 +17,17 @@
           </mappings>
         </serverdata>
       </paths>
-      <paths name="daipl@10.134.147.182:22 password">
+      <paths name="3090 (1)">
         <serverdata>
           <mappings>
-            <mapping deploy="/home/daipl/glt/myWork" local="$PROJECT_DIR$" web="/" />
+            <mapping local="$PROJECT_DIR$" web="/" />
+          </mappings>
+        </serverdata>
+      </paths>
+      <paths name="3090 (project level)">
+        <serverdata>
+          <mappings>
+            <mapping deploy="/home/daipl/glt/CLCNet" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>
