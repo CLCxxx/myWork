@@ -18,7 +18,7 @@ MODEL:
   SAM_NUMBER: 1 # The number of SAM for each encoder or decoder level; set 1 for our ESDNet, and 2 for ESDNet-L
 
 TRAIN:
-  BATCH_SIZE: 8
+  BATCH_SIZE: 16
   #LOADER: crop # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
   #CROP_SIZE: 768 # Set the crop size if LOADER==crop
   #RESIZE_SIZE: 384 # Set the resizing size if LOADER==crop

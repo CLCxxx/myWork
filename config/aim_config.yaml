@@ -7,7 +7,7 @@ GENERAL:
 
 DATA:
   DATA_TYPE: AIM # Please specify the type of the dataset (select from AIM/UHDM/FHDMi/TIP)
-  TRAIN_DATASET: './dataset/aim_dataset/ValidationClear'# The training data path, e.g., ./uhdm_data/Train
+  TRAIN_DATASET: './dataset/LCD/Training'# The training data path, e.g., ./uhdm_data/Train
   TEST_DATASET: './dataset/aim_dataset/test'# The test data path, e.g., ./uhdm_data/Test
 
 MODEL:
