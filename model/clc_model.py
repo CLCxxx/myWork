@@ -19,6 +19,28 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         in_img = data['in_img'].to(device)
         label = data['label'].to(device)
+        img_nf = data['img_nf'].to(device)
+        # print(in_img.size())
+        # print(img_nf.size())
+        old_img = in_img
+        old_img = old_img[:, 0:1, :, :] * 0.299 + old_img[:, 1:2, :, :] * 0.587 + old_img[:, 2:3, :, :] * 0.114
+        de_moire_img = img_nf
+        de_moire_img = de_moire_img[:, 0:1, :, :] * 0.299 + de_moire_img[:, 1:2, :, :] * 0.587 + de_moire_img[:, 2:3, :,
+                                                                                                 :] * 0.114
+        noise = torch.abs(old_img - de_moire_img)
+
+        mask = torch.div(de_moire_img, noise + 0.0001)
+
+        batch_size = mask.shape[0]
+        height = mask.shape[2]
+        width = mask.shape[3]
+        mask_max = torch.max(mask.view(batch_size, -1), dim=1)[0]
+        mask_max = mask_max.view(batch_size, 1, 1, 1)
+        mask_max = mask_max.repeat(1, 1, height, width)
+        mask = mask * 1.0 / (mask_max + 0.0001)
+
+        mask = torch.clamp(mask, min=0, max=1.0)
+        mask = mask.float()
         b, c, h, w = in_img.size()
 
         # pad image such that the resolution is a multiple of 32
@@ -35,7 +57,7 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         with torch.no_grad():
             st = time.time()
-            out_1, out_2, out_3 = model(in_img)
+            out_1 = model(in_img,mask)
             cur_time = time.time()-st
             if h_pad != 0:
                out_1 = out_1[:, :, h_pad:-h_odd_pad, :]
@@ -57,9 +79,29 @@ def model_fn_decorator(loss_fn, device, mode='train'):
         # prepare input and forward
         in_img = data['in_img'].to(device)
         label = data['label'].to(device)
-        out_1, out_2, out_3 = model(in_img)
-        loss = loss_fn(out_1, out_2, out_3, label)
+        img_nf = data['img_nf'].to(device)
+        # print(in_img.size())
+        # print(img_nf.size())
+        old_img = in_img
+        old_img = old_img[:, 0:1, :, :] * 0.299 + old_img[:, 1:2, :, :] * 0.587 + old_img[:, 2:3, :, :] * 0.114
+        de_moire_img = img_nf
+        de_moire_img = de_moire_img[:, 0:1, :, :] * 0.299 + de_moire_img[:, 1:2, :, :] * 0.587 + de_moire_img[:, 2:3, :, :] * 0.114
+        noise = torch.abs(old_img - de_moire_img)
 
+        mask = torch.div(de_moire_img, noise + 0.0001)
+
+        batch_size = mask.shape[0]
+        height = mask.shape[2]
+        width = mask.shape[3]
+        mask_max = torch.max(mask.view(batch_size, -1), dim=1)[0]
+        mask_max = mask_max.view(batch_size, 1, 1, 1)
+        mask_max = mask_max.repeat(1, 1, height, width)
+        mask = mask * 1.0 / (mask_max + 0.0001)
+
+        mask = torch.clamp(mask, min=0, max=1.0)
+        mask = mask.float()
+        out_1 = model(in_img, mask=mask)
+        loss = loss_fn(out_1, label)
         # save images
         if iters % args.SAVE_ITER == (args.SAVE_ITER - 1):
             in_save = in_img.detach().cpu()

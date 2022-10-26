@@ -18,14 +18,15 @@ MODEL:
   SAM_NUMBER: 1 # The number of SAM for each encoder or decoder level; set 1 for our ESDNet, and 2 for ESDNet-L
 
 TRAIN:
-  BATCH_SIZE: 2
-  LOADER: crop # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
+  BATCH_SIZE: 4
+  LOADER: resize # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
   CROP_SIZE: 512 # Set the crop size if LOADER==crop
-  RESIZE_SIZE: 384 # Set the resizing size if LOADER==crop
+  RESIZE_SIZE: 256 # Set the resizing size if LOADER==crop
   SAVE_ITER: 500 # Save training images/results at each SAVE_ITER*n iter
   LOAD_EPOCH: False # If specify it, loading the corresponding model for resuming training
   LAM: 1 # The loss weight for L1 loss
-  LAM_P: 1 # The loss weight for perceptual loss
+  LAM_P: 0.1 # The loss weight for perceptual loss
+  LAM_C: 0.1 # The loss weight for color loss
 
 TEST:
   TEST_EPOCH: 150 # Input 'auto' for loading the latest model

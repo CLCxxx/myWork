@@ -183,7 +183,10 @@ class aim_data_loader(data.Dataset):
 
             elif self.loader == 'default':
                 labels, moire_imgs = default_loader([path_tar, path_src])
-
+            img_nf = moire_imgs.clone().permute(1, 2, 0).numpy() * 255.0
+            img_nf = cv2.blur(img_nf, (5, 5))
+            img_nf = img_nf * 1.0 / 255.0
+            img_nf = torch.Tensor(img_nf).float().permute(2, 0, 1)
         elif self.mode == 'test':
             image_in = number + '.png'
             image_in_gt = number + '.png'
@@ -194,7 +197,10 @@ class aim_data_loader(data.Dataset):
                 data['origin_label'] = default_loader([path_tar])[0]
             else:
                 labels, moire_imgs = default_loader([path_tar, path_src])
-
+            img_nf = moire_imgs.clone().permute(1, 2, 0).numpy() * 255.0
+            img_nf = cv2.blur(img_nf, (5, 5))
+            img_nf = img_nf * 1.0 / 255.0
+            img_nf = torch.Tensor(img_nf).float().permute(2, 0, 1)
         else:
             print('Unrecognized mode! Please select either "train" or "test"')
             raise NotImplementedError
@@ -202,7 +208,7 @@ class aim_data_loader(data.Dataset):
         data['in_img'] = moire_imgs
         data['label'] = labels
         data['number'] = number
-
+        data['img_nf'] = img_nf
         return data
 
     def __len__(self):

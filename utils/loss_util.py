@@ -8,7 +8,9 @@ from torchvision import models as tv
 from torch.nn.parameter import Parameter
 import os
 
+torch.cuda.current_device()
 
+torch.cuda._initialized = True
 
 class multi_VGGPerceptualLoss(torch.nn.Module):
     def __init__(self, lam=1, lam_p=1):
@@ -67,3 +69,49 @@ class VGGPerceptualLoss(torch.nn.Module):
                 gram_y = act_y @ act_y.permute(0, 2, 1)
                 loss += torch.nn.functional.l1_loss(gram_x, gram_y)
         return loss
+
+class net_loss(torch.nn.Module):
+    def __init__(self,lam=1,lam_p=1,lam_c=1):
+        super(net_loss, self).__init__()
+        self.charbonnier_loss = CharbonnierLoss()
+        self.vggloss = VGGPerceptualLoss()
+        self.color_loss = ColorLoss()
+        self.lam = lam
+        self.lam_p = lam_p
+        self.lam_c = lam_c
+    def forward(self,out,gt1, feature_layers=[2]):
+        charbonnier_loss = self.charbonnier_loss(out,gt1)
+        vgg_loss = self.vggloss(out, gt1, feature_layers=feature_layers)
+        # print("charbonnier_loss: %s vgg_loss: %s ", (charbonnier_loss,vgg_loss))
+        return self.lam*charbonnier_loss+self.lam_p*vgg_loss
+class CharbonnierLoss(nn.Module):
+    """Charbonnier Loss (L1)"""
+
+    def __init__(self, eps=1e-6):
+        super(CharbonnierLoss, self).__init__()
+        self.eps = eps
+
+    def forward(self, x, y):
+        diff = x - y
+        loss = torch.mean(torch.sqrt(diff * diff + self.eps))
+        return loss
+
+class CharbonnierLoss2(nn.Module):
+    """Charbonnier Loss (L1)"""
+
+    def __init__(self, eps=1e-6):
+        super(CharbonnierLoss2, self).__init__()
+        self.eps = eps
+
+    def forward(self, x, y):
+        diff = x - y
+        loss = torch.mean(torch.sqrt(diff * diff + self.eps))
+        return loss
+
+
+class ColorLoss(nn.Module):
+    def __init__(self):
+        super(ColorLoss, self).__init__()
+
+    def forward(self, x1, x2):
+        return torch.sum(torch.pow((x1 - x2), 2)).div(2 * x1.size()[0])
