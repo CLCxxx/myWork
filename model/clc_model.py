@@ -57,19 +57,19 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         with torch.no_grad():
             st = time.time()
-            out_1 = model(in_img,mask)
+            out1, out2, out = model(in_img, mask)
             cur_time = time.time()-st
             if h_pad != 0:
-               out_1 = out_1[:, :, h_pad:-h_odd_pad, :]
+               out = out[:, :, h_pad:-h_odd_pad, :]
             if w_pad != 0:
-               out_1 = out_1[:, :, :, w_pad:-w_odd_pad]
+               out = out[:, :, :, w_pad:-w_odd_pad]
 
         if args.EVALUATION_METRIC:
-            cur_lpips, cur_psnr, cur_ssim = compute_metrics.compute(out_1, label)
+            cur_lpips, cur_psnr, cur_ssim = compute_metrics.compute(out, label)
 
         # save images
         if args.SAVE_IMG:
-            out_save = out_1.detach().cpu()
+            out_save = out.detach().cpu()
             torchvision.utils.save_image(out_save, save_path + '/' + 'test_%s' % number[0] + '.%s' % args.SAVE_IMG)
 
         return cur_psnr, cur_ssim, cur_lpips, cur_time
@@ -100,12 +100,12 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         mask = torch.clamp(mask, min=0, max=1.0)
         mask = mask.float()
-        out_1 = model(in_img, mask=mask)
-        loss = loss_fn(out_1, label)
+        out1, out2, out = model(in_img, mask=mask)
+        loss = loss_fn(out1, out2, out, label)
         # save images
         if iters % args.SAVE_ITER == (args.SAVE_ITER - 1):
             in_save = in_img.detach().cpu()
-            out_save = out_1.detach().cpu()
+            out_save = out.detach().cpu()
             gt_save = label.detach().cpu()
             res_save = torch.cat((in_save, out_save, gt_save), 3)
             save_number = (iters + 1) // args.SAVE_ITER

@@ -79,11 +79,15 @@ class net_loss(torch.nn.Module):
         self.lam = lam
         self.lam_p = lam_p
         self.lam_c = lam_c
-    def forward(self,out,gt1, feature_layers=[2]):
-        charbonnier_loss = self.charbonnier_loss(out,gt1)
-        vgg_loss = self.vggloss(out, gt1, feature_layers=feature_layers)
-        # print("charbonnier_loss: %s vgg_loss: %s ", (charbonnier_loss,vgg_loss))
-        return self.lam*charbonnier_loss+self.lam_p*vgg_loss
+    def forward(self, out1, out2, out ,gt1, feature_layers=[2]):
+        gt2 = F.interpolate(gt1, scale_factor=0.5, mode='bilinear', align_corners=False)
+        gt3 = F.interpolate(gt1, scale_factor=0.25, mode='bilinear', align_corners=False)
+
+        loss1 = self.lam_p*self.vggloss(out1, gt3, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out1,gt3) + self.lam_c*self.color_loss(out1, gt3)
+        loss2 = self.lam_p*self.vggloss(out2, gt2, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out2,gt2)+ self.lam_c*self.color_loss(out2, gt2)
+        loss3 = self.lam_p*self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out, gt1)+ self.lam_c*self.color_loss(out, gt1)
+        # print("charbonnier_loss:%d vgg_loss: %d color_loss:%d", (charbonnier_loss.item(), vgg_loss.item(), color_loss.item()))
+        return loss1+loss2+loss3
 class CharbonnierLoss(nn.Module):
     """Charbonnier Loss (L1)"""
 
@@ -108,10 +112,45 @@ class CharbonnierLoss2(nn.Module):
         loss = torch.mean(torch.sqrt(diff * diff + self.eps))
         return loss
 
+def get_gaussian_kernel(kernel_size=3, sigma=2, channels=3):
+    # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
+    x_coord = torch.arange(kernel_size)
+    x_grid = x_coord.repeat(kernel_size).view(kernel_size, kernel_size)
+    y_grid = x_grid.t()
+    xy_grid = torch.stack([x_grid, y_grid], dim=-1).float()
 
+    mean = (kernel_size - 1) / 2.
+    variance = sigma ** 2.
+
+    # Calculate the 2-dimensional gaussian kernel which is
+    # the product of two gaussian distributions for two different
+    # variables (in this case called x and y)
+    gaussian_kernel = (1. / (2. * math.pi * variance)) * \
+                      torch.exp(
+                          -torch.sum((xy_grid - mean) ** 2., dim=-1) / \
+                          (2 * variance)
+                      )
+
+    # Make sure sum of values in gaussian kernel equals 1.
+    gaussian_kernel = gaussian_kernel / torch.sum(gaussian_kernel)
+
+    # Reshape to 2d depthwise convolutional weight
+    gaussian_kernel = gaussian_kernel.view(1, 1, kernel_size, kernel_size)
+    gaussian_kernel = gaussian_kernel.repeat(channels, 1, 1, 1)
+
+    gaussian_filter = nn.Conv2d(in_channels=channels, out_channels=channels, kernel_size=kernel_size, groups=channels,
+                                bias=False, padding=kernel_size // 2)
+
+    gaussian_filter.weight.data = gaussian_kernel
+    gaussian_filter.weight.requires_grad = False
+
+    return gaussian_filter
 class ColorLoss(nn.Module):
     def __init__(self):
         super(ColorLoss, self).__init__()
-
+        self.blur_layer = get_gaussian_kernel()
+        self.criterion1 = torch.nn.MSELoss()
     def forward(self, x1, x2):
-        return torch.sum(torch.pow((x1 - x2), 2)).div(2 * x1.size()[0])
+        x1 = self.blur_layer(x1)
+        x2 = self.blur_layer(x2)
+        return self.criterion1(x1, x2)

@@ -1,6 +1,7 @@
 """
 Implementation of CLCNet for image demoireing
 """
+import math
 
 import torch
 import torch.nn as nn
@@ -11,7 +12,7 @@ class my_net(nn.Module):
         super(my_net, self).__init__()
         self.full_encoder = full_encoder()
         self.full_decoder = full_decoder()
-        self.sub_encoder = full_encoder()
+        self.sub_encoder = sub_encoder()
         self.sub_decoder = sub_decoder()
         self.conv_first_1 = nn.Conv2d(3, 32, 3, 1, 1, bias=True)
         self.conv_first_2 = nn.Conv2d(32, 32, 3, 2, 1, bias=True)
@@ -21,6 +22,9 @@ class my_net(nn.Module):
         self.upconv2 = nn.Conv2d(32 * 2, 32 * 4, 3, 1, 1, bias=True)
         self.HRconv = nn.Conv2d(64, 64, 3, 1, 1, bias=True)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1, bias=True)
+
+        self.conv_last1 = nn.Conv2d(32, 3, 3, 1, 1, bias=True)
+        self.conv_last2 = nn.Conv2d(32, 3, 3, 1, 1, bias=True)
 
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
         self.pixel_shuffle = nn.PixelShuffle(2)
@@ -42,20 +46,29 @@ class my_net(nn.Module):
         mask_unfold = torch.mean(mask_unfold, dim=2).unsqueeze(dim=-2)
         mask_unfold[mask_unfold <= 0.5] = 0.0
         mask = mask.repeat(1, channel, 1, 1)
-        fea = x2 * (1 - mask) + x1 * mask
-        out_noise = self.recon_trunk(fea)
-
-        out_noise = torch.cat([out_noise, L1_fea_3], dim=1)
-        out_noise = self.lrelu(self.pixel_shuffle(self.upconv1(out_noise)))
-        out_noise = torch.cat([out_noise, L1_fea_2], dim=1)
-        out_noise = self.lrelu(self.pixel_shuffle(self.upconv2(out_noise)))
-        out_noise = torch.cat([out_noise, L1_fea_1], dim=1)
-        # print(out_noise.size())
+        # fea = x2 * (1 - mask) + x1 * mask # 原计算方式
+        fea = x1 * (1 - mask) + x2 * mask
+        #print(fea.size())
+        # 32 * 128 * 128
+        out1 = self.recon_trunk(fea)
+        # 32 * 64 * 64
+        out2 = torch.cat([out1, L1_fea_3], dim=1)
+        out2 = self.lrelu(self.pixel_shuffle(self.upconv1(out2)))
+        # 32 * 128 * 128
+        out3 = torch.cat([out2, L1_fea_2], dim=1)
+        out3 = self.lrelu(self.pixel_shuffle(self.upconv2(out3)))
+        # 32 * 256 * 256
+        out_noise = torch.cat([out3, L1_fea_1], dim=1)
+        # 64 * 256 * 256
         out_noise = self.lrelu(self.HRconv(out_noise))
-
+        # 32 * 256 * 256
         out_noise = self.conv_last(out_noise)
+        # 3 * 256 * 256
         out_noise = out_noise + x
-        return out_noise
+
+        out1 = self.conv_last1(out1)
+        out2 = self.conv_last2(out2)
+        return out1, out2, out_noise
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -109,6 +122,9 @@ class spa_layer(nn.Module):
         x = self.conv1(x)  # 30,1,50,30
         return tmp.mul(self.sigmoid(x))  # 30,1,50,30
 
+
+
+
 def initialize_weights(net_l, scale=1):
     if not isinstance(net_l, list):
         net_l = [net_l]
@@ -146,7 +162,7 @@ class ResidualBlock_noBN(nn.Module):
         # identity = x
         out = F.relu(self.conv1(x), inplace=True)
         out = self.conv2(out)
-        return  out
+        return out
 
 class full_encoder(nn.Module):
     def __init__(self):
@@ -175,7 +191,7 @@ class full_encoder(nn.Module):
         )
 
         # Encoder Layer2
-        # 64*128*128
+        # 32*128*128
         self.layer5 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -197,7 +213,7 @@ class full_encoder(nn.Module):
         )
 
         # Encoder Layer3
-        # 128*64*64
+        # 64*64*64
         self.layer9 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -217,7 +233,7 @@ class full_encoder(nn.Module):
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU()
         )
-        # 256*32*32
+        # 128*32*32
         self.layer13 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -237,7 +253,7 @@ class full_encoder(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU()
         )
-
+        # 256*16*16
 
     def forward(self, x):
         # Encoder Layer1
@@ -271,7 +287,7 @@ class full_decoder(nn.Module):
         super(full_decoder, self).__init__()
         self.ca_net = eca_layer()
         # Decoder Layer1
-        # 256*32*32
+        # 256*16*16
         self.layer1 = nn.Sequential(
             nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -293,7 +309,7 @@ class full_decoder(nn.Module):
         )
 
         # Decoder Layer2
-        # 128*64*64
+        # 128*32*32
         self.layer5 = nn.Sequential(
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -315,7 +331,7 @@ class full_decoder(nn.Module):
         )
 
         # Encoder Layer3
-        # 64*128*128
+        # 64*64*64
         self.layer9 = nn.Sequential(
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -335,7 +351,7 @@ class full_decoder(nn.Module):
             nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU()
         )
-        # 3*256*256
+        # 32*128*128
 
     def forward(self, x):
         # decoder Layer1
@@ -385,7 +401,7 @@ class sub_encoder(nn.Module):
         )
 
         # Encoder Layer2
-        # 64*128*128
+        # 32*128*128
         self.layer5 = nn.Sequential(
             nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -407,7 +423,7 @@ class sub_encoder(nn.Module):
         )
 
         # Encoder Layer3
-        # 128*64*64
+        # 64*64*64
         self.layer9 = nn.Sequential(
             nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -427,7 +443,7 @@ class sub_encoder(nn.Module):
             nn.Conv2d(128, 128, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU()
         )
-        # 256*32*32
+        # 128*32*32
         self.layer13 = nn.Sequential(
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -447,6 +463,7 @@ class sub_encoder(nn.Module):
             nn.Conv2d(256, 256, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU()
         )
+        # 256*16*16
 
     def forward(self, x):
         # Encoder Layer1
@@ -536,7 +553,7 @@ class sub_decoder(nn.Module):
         super(sub_decoder, self).__init__()
         self.spa_net = spa_layer()
         # Decoder Layer1
-        # 256*32*32
+        # 256*16*16
         self.layer1 = nn.Sequential(
             nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -558,7 +575,7 @@ class sub_decoder(nn.Module):
         )
 
         # Decoder Layer2
-        # 128*64*64
+        # 128*32*32
         self.layer5 = nn.Sequential(
             nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -580,7 +597,7 @@ class sub_decoder(nn.Module):
         )
 
         # Encoder Layer3
-        # 64*128*128
+        # 64*64*64
         self.layer9 = nn.Sequential(
             nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(),
@@ -600,7 +617,7 @@ class sub_decoder(nn.Module):
             nn.ConvTranspose2d(32, 32, kernel_size=4, stride=2, padding=1),
             nn.LeakyReLU()
         )
-        # 3*256*256
+        # 32*128*128
 
     def forward(self, x):
         # decoder Layer1
@@ -667,13 +684,18 @@ class sub_decoder(nn.Module):
 
 
 if __name__ == '__main__':
-    a = torch.rand(2, 3, 256, 256)
-    encoder_net = full_encoder()
-    decoder_net = full_decoder()
-    b = torch.rand(2,3,256,256)
-    sub_encoder_net = sub_encoder()
-    sub_decoder_net = sub_decoder()
-    net = my_net()
+    a = torch.rand(2, 2, 256, 256)
+    b = torch.rand(2, 2, 256, 256)
+    out_noise = torch.cat([a, b], dim=1)
+    out_noise = nn.PixelShuffle(2)(out_noise)
+
+    print(out_noise.size())
+    # encoder_net = full_encoder()
+    # decoder_net = full_decoder()
+    # b = torch.rand(2,3,256,256)
+    # sub_encoder_net = sub_encoder()
+    # sub_decoder_net = sub_decoder()
+    # net = my_net()
     # net = eca_layer(channel=3)
     # avg = nn.AdaptiveAvgPool2d(1)(a)
     # print(avg.size())
@@ -687,4 +709,4 @@ if __name__ == '__main__':
     # b = sub_encoder_net(b)
     # print(b.size())
     # print(sub_decoder_net(b).size())
-    print(net.forward(a).size())
+    # print(net.forward(a).size())

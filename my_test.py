@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
 from model.clc_model import model_fn_decorator
-from model.clc_nets import my_net
+from model.clc_net_1 import Snr_Fusion_Net as my_net
 from dataset.load_data import *
 from tqdm import tqdm
 from utils.loss_util import *
@@ -148,7 +148,7 @@ def main():
 
     # computational cost for the model
     if args.EVALUATION_COST:
-        calculate_cost(model, input_size=(1, 3, 2176, 3840))
+        calculate_cost(model, input_size=(1, 3, 256, 256))
 
     logging.warning('load model from %s' % load_path)
     logging.warning('save image results to %s' % save_path)
