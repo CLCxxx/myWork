@@ -1,4 +1,4 @@
-# myWork
+# CLC Net
 
 ## 代码结构
     torch_base 
@@ -17,16 +17,33 @@
 ## 论文开发中 
 
 ## mileStone
-### 代码框架设置与git工具同步
-### pycharm 远程连接配置完成
-### 环境搭建
-### TODO:任务场景定义不清晰
+  - 代码框架设置与git工具同步
+  - pycharm 远程连接配置完成
+  - 环境搭建
+  - 完成初版网络
+  - 网络代码结构重构
+  - 网络重构
+
 
 ## requirement
+    - cudatoolkit=11.3.1
+    - numpy=1.21.5
+    - python=3.8.13
+    - pytorch=1.10.1
+    - pyyaml=6.0
+    - tensorboardx=2.2
+    - torchaudio=0.10.1
+    - torchvision=0.11.2
+    - tqdm=4.63.0
+    - pip
+    - pip:
+      - gdown==4.5.1
+      - lpips==0.1.4
+      - opencv-python==4.5.5.64
+      - scikit-image==0.19.2
+      - thop==0.0.31-2005241907
 
 ## 实验问题与缺陷
+    - 网络对细节的修复效果较差
 
-
-
-## 参考文献
 
