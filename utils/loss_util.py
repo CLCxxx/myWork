@@ -83,9 +83,10 @@ class net_loss(torch.nn.Module):
         gt2 = F.interpolate(gt1, scale_factor=0.5, mode='bilinear', align_corners=False)
         gt3 = F.interpolate(gt1, scale_factor=0.25, mode='bilinear', align_corners=False)
 
-        loss1 = self.lam_p*self.vggloss(out1, gt3, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out1,gt3) + self.lam_c*self.color_loss(out1, gt3)
-        loss2 = self.lam_p*self.vggloss(out2, gt2, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out2,gt2)+ self.lam_c*self.color_loss(out2, gt2)
-        loss3 = self.lam_p*self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out, gt1)+ self.lam_c*self.color_loss(out, gt1)
+        loss1 = self.lam_p*self.vggloss(out1, gt3, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out1, gt3)
+        loss2 = self.lam_p*self.vggloss(out2, gt2, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out2, gt2)
+        loss3 = self.lam_p*self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out, gt1)
+
         # print("charbonnier_loss:%d vgg_loss: %d color_loss:%d", (charbonnier_loss.item(), vgg_loss.item(), color_loss.item()))
         return loss1+loss2+loss3
 class CharbonnierLoss(nn.Module):

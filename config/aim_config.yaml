@@ -22,7 +22,7 @@ TRAIN:
   LOADER: resize # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
   CROP_SIZE: 256 # Set the crop size if LOADER==crop
   RESIZE_SIZE: 256 # Set the resizing size if LOADER==crop
-  SAVE_ITER: 500 # Save training images/results at each SAVE_ITER*n iter
+  SAVE_ITER: 2000 # Save training images/results at each SAVE_ITER*n iter
   LOAD_EPOCH: False # If specify it, loading the corresponding model for resuming training
   NETS_DIR: './out_dir/aim/exp_light/net_checkpoints'
   LAM: 1 # The loss weight for L1 loss
@@ -40,6 +40,7 @@ TEST:
 
 SOLVER:
   EPOCHS: 150 # The total training epochs
+  STABLE_LR: 100 # Learning rate remains unchanged for the epochs nums
   T_0: 50 # The total epochs for the first learning cycle (learning rate warms up then)
   T_MULT: 1 # The learning cycle would be (T_0, T_0*T_MULT, T_0*T_MULT^2, T_0*T_MULT^3, ...)
   ETA_MIN: 0.000001 # Initial learning rate in each learning cycle

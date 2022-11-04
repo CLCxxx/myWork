@@ -16,17 +16,16 @@ class Snr_Fusion_Net(nn.Module):
         self.sub_encoder = sub_encoder()
         self.sub_decoder = sub_decoder()
 
-        self.conv_first_1 = nn.Conv2d(3, 32, 3, 1, 1, bias=True)
-        self.conv_first_2 = nn.Conv2d(32, 32, 3, 1, 1, bias=True)
-        self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
+        self.conv_first_1 = conv_relu(in_channel=3, out_channel=32, kernel_size=3, padding=1, stride=1, dilation_rate=1)
+        self.conv_first_2 = conv_relu(in_channel=32, out_channel=32, kernel_size=3, padding=2, stride=1,
+                                      dilation_rate=2)
         self.fusion_module = fusion_module(in_channel=32)
         self.fusion_module1 = fusion_module(in_channel=128)
         self.fusion_module2 = fusion_module(in_channel=64)
 
     def forward(self, x, mask=None):
-        gt = x
-        l1_fea_1 = self.lrelu(self.conv_first_1(x))
-        l1_fea_1 = self.lrelu(self.conv_first_2(l1_fea_1))
+        l1_fea_1 = self.conv_first_1(x)
+        l1_fea_1 = self.conv_first_2(l1_fea_1)
 
         x1, x2, x = self.full_encoder(l1_fea_1)
         x1, x2, x = self.full_decoder(x1, x2, x)
@@ -38,10 +37,7 @@ class Snr_Fusion_Net(nn.Module):
         fea2 = self.fusion_module2(x2, y2, mask)
         fea = self.fusion_module(x, y, mask)
 
-        gt1 = F.interpolate(gt, scale_factor=0.25, mode='bilinear', align_corners=False)
-        gt2 = F.interpolate(gt, scale_factor=0.5, mode='bilinear', align_corners=False)
-
-        return fea1 + gt1, fea2 + gt2, fea + gt
+        return fea1, fea2, fea
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -57,10 +53,13 @@ class fusion_module(nn.Module):
     def __init__(self, in_channel):
         super(fusion_module, self).__init__()
         c = in_channel
-        self.downconv1 = nn.Conv2d(c, c * 4, 4, 2, 1, bias=True)
-        self.downconv2 = nn.Conv2d(c, c * 4, 4, 2, 1, bias=True)
 
-        self.conv_last = nn.Conv2d(c, 3, 3, 1, 1, bias=True)
+        self.recon_module = Re_Block(in_channel=c, out_channel=c)
+
+        self.down_conv1 = nn.Conv2d(in_channels=c * 2, out_channels=c * 4, kernel_size=4, stride=2, padding=1)
+        self.down_conv2 = nn.Conv2d(in_channels=c, out_channels=c * 4, kernel_size=4, stride=2, padding=1)
+        self.HR_conv = nn.Conv2d(in_channels=c, out_channels=c, kernel_size=3, stride=1, padding=1)
+        self.conv_last = conv(in_channel=c, out_channel=3, kernel_size=3, stride=1, padding=1, dilation_rate=1)
 
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
         self.pixel_shuffle = nn.PixelShuffle(2)
@@ -77,20 +76,24 @@ class fusion_module(nn.Module):
         mask = mask.repeat(1, channel, 1, 1)
         # fea = x2 * (1 - mask) + x1 * mask # 原计算方式
         fea = x1 * (1 - mask) + x2 * mask
-        out2 = self.lrelu(self.pixel_shuffle(self.downconv1(fea)))
-        out3 = self.lrelu(self.pixel_shuffle(self.downconv2(out2)))
-
-        out_noise = self.lrelu(self.conv_last(out3))
+        out_noise = self.recon_module(fea)
+        out_noise = torch.cat([out_noise, fea], dim=1)
+        out_noise = self.lrelu(self.pixel_shuffle(self.down_conv1(out_noise)))
+        out_noise = self.lrelu(self.pixel_shuffle(self.down_conv2(out_noise)))
+        out_noise = self.lrelu(self.HR_conv(out_noise))
+        out_noise = self.conv_last(out_noise)
         return out_noise
 
 
 class full_encoder_level(nn.Module):
     def __init__(self, in_channel, out_channel, eca_num):
         super(full_encoder_level, self).__init__()
-        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1)
-        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=1,
-                                stride=1)
-        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3)
+        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1,
+                                dilation_rate=1)
+        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=2,
+                                stride=1, dilation_rate=2)
+        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3,
+                           dilation_rate=1, padding=1)
         self.down1 = nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=2, padding=1)
         self.eca_module = nn.ModuleList()
         for _ in range(eca_num):
@@ -128,41 +131,66 @@ class full_encoder(nn.Module):
 class full_decoder_level(nn.Module):
     def __init__(self, in_channel, out_channel, eca_num):
         super(full_decoder_level, self).__init__()
-        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1)
-        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=1,
-                                stride=1)
-        self.layer3 = conv(in_channel=out_channel * 2 + in_channel, out_channel=out_channel, kernel_size=3)
-        self.up1 = nn.ConvTranspose2d(out_channel, out_channel, kernel_size=4, stride=2, padding=1)
+        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1,
+                                dilation_rate=1)
+        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=2,
+                                stride=1, dilation_rate=2)
+        self.layer3 = conv(in_channel=out_channel * 2 + in_channel, out_channel=out_channel, kernel_size=3,
+                           dilation_rate=1)
         self.eca_module = nn.ModuleList()
         for _ in range(eca_num):
             eca_block = eca_layer(in_channel=out_channel, out_channel=out_channel)
             self.eca_module.append(eca_block)
 
-    def forward(self, x):
+    def forward(self, x, feat=True):
         t = x
         _t = self.layer1(x)
         t = torch.cat([_t, t], dim=1)
         _t = self.layer2(t)
         t = torch.cat([_t, t], dim=1)
         t = self.layer3(t)
-        t = self.up1(t)
+        t = F.interpolate(t, scale_factor=2, mode='bilinear')
+
         for l_block in self.eca_module:
             t = l_block(t)
+
         return t
 
 
+class CA(nn.Module):
+    def __init__(self, in_channel):
+        super(CA, self).__init__()
+        self.mod = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            nn.Conv2d(in_channel, in_channel // 16, kernel_size=1),
+            nn.ReLU(),
+            nn.Conv2d(in_channel // 16, in_channel, kernel_size=1),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        return x * self.mod(x)
+
+
 class full_decoder(nn.Module):
-    def __init__(self, in_channel=256):
+    def __init__(self, in_channel=256, out_channel=32):
         super(full_decoder, self).__init__()
-        c = in_channel
+        # self.conv1 = nn.Conv2d(256, 128, 3, 1, 1)
+        # self.conv2 = nn.Conv2d(128, 64, 3, 1, 1)
+        self.ca1 = CA(in_channel=256)
+        self.ca2 = CA(in_channel=128)
+        self.ca3 = CA(in_channel=64)
         self.full_decoder_layer1 = full_decoder_level(in_channel=256, out_channel=128, eca_num=0)
         self.full_decoder_layer2 = full_decoder_level(in_channel=128, out_channel=64, eca_num=0)
         self.full_decoder_layer3 = full_decoder_level(in_channel=64, out_channel=32, eca_num=1)
 
     def forward(self, x1, x2, x):
+        x = self.ca1(x)
         t1 = self.full_decoder_layer1(x)
+        x2 = self.ca2(x2)
         t1 += x2
         t2 = self.full_decoder_layer2(t1)
+        x1 = self.ca3(x1)
         t2 += x1
         t = self.full_decoder_layer3(t2)
         return t1, t2, t
@@ -171,10 +199,12 @@ class full_decoder(nn.Module):
 class sub_encoder_level(nn.Module):
     def __init__(self, in_channel, out_channel, spa_num):
         super(sub_encoder_level, self).__init__()
-        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1)
-        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=1,
-                                stride=1)
-        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3)
+        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1,
+                                dilation_rate=1)
+        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=2,
+                                stride=1, dilation_rate=2)
+        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3,
+                           dilation_rate=1)
         self.down1 = nn.Conv2d(out_channel, out_channel, kernel_size=3, stride=2, padding=1)
         self.spa_module = nn.ModuleList()
         for _ in range(spa_num):
@@ -214,11 +244,12 @@ class sub_encoder(nn.Module):
 class sub_decoder_layer(nn.Module):
     def __init__(self, in_channel, out_channel, spa_num):
         super(sub_decoder_layer, self).__init__()
-        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1)
-        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=1,
-                                stride=1)
-        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3)
-        self.up1 = nn.ConvTranspose2d(out_channel, out_channel, kernel_size=4, stride=2, padding=1)
+        self.layer1 = conv_relu(in_channel=in_channel, out_channel=out_channel, kernel_size=3, padding=1, stride=1,
+                                dilation_rate=1)
+        self.layer2 = conv_relu(in_channel=in_channel + out_channel, out_channel=out_channel, kernel_size=3, padding=2,
+                                stride=1, dilation_rate=2)
+        self.layer3 = conv(in_channel=in_channel + out_channel * 2, out_channel=out_channel, kernel_size=3,
+                           dilation_rate=1)
         self.spa_module = nn.ModuleList()
         for _ in range(spa_num):
             spa_block = spa_layer(in_channel=out_channel, out_channel=out_channel)
@@ -231,7 +262,7 @@ class sub_decoder_layer(nn.Module):
         _t = self.layer2(t)
         t = torch.cat([_t, t], dim=1)
         t = self.layer3(t)
-        t = self.up1(t)
+        t = F.interpolate(t, scale_factor=2, mode='bilinear')
         for l_block in self.spa_module:
             t = l_block(t)
 
@@ -241,17 +272,24 @@ class sub_decoder_layer(nn.Module):
 class sub_decoder(nn.Module):
     def __init__(self, in_channel=256):
         super(sub_decoder, self).__init__()
-        c = in_channel
-        self.sub_encoder_layer1 = sub_decoder_layer(in_channel=256, out_channel=128, spa_num=0)
-        self.sub_encoder_layer2 = sub_decoder_layer(in_channel=128, out_channel=64, spa_num=0)
-        self.sub_encoder_layer3 = sub_decoder_layer(in_channel=64, out_channel=32, spa_num=1)
+
+        self.ca1 = CA(in_channel=256)
+        self.ca2 = CA(in_channel=128)
+        self.ca3 = CA(in_channel=64)
+
+        self.sub_decoder_layer1 = sub_decoder_layer(in_channel=256, out_channel=128, spa_num=0)
+        self.sub_decoder_layer2 = sub_decoder_layer(in_channel=128, out_channel=64, spa_num=0)
+        self.sub_decoder_layer3 = sub_decoder_layer(in_channel=64, out_channel=32, spa_num=1)
 
     def forward(self, x1, x2, x):
-        t1 = self.sub_encoder_layer1(x)
+        x = self.ca1(x)
+        t1 = self.sub_decoder_layer1(x)
+        x2 = self.ca2(x2)
         t1 += x2
-        t2 = self.sub_encoder_layer2(t1)
+        t2 = self.sub_decoder_layer2(t1)
+        x1 = self.ca3(x1)
         t2 += x1
-        t = self.sub_encoder_layer3(t2)
+        t = self.sub_decoder_layer3(t2)
         return t1, t2, t
 
 
@@ -259,9 +297,9 @@ class Re_Block(nn.Module):
     def __init__(self, in_channel, out_channel):
         super(Re_Block, self).__init__()
         c = in_channel
-        self.layer1 = conv_relu(in_channel=c, out_channel=c)
-        self.layer2 = conv_relu(in_channel=c * 2, out_channel=c)
-        self.layer3 = nn.Conv2d(c * 3, c, kernel_size=3, stride=1, padding=1)
+        self.layer1 = conv_relu(in_channel=c, out_channel=c, kernel_size=3, dilation_rate=1, padding=1)
+        self.layer2 = conv_relu(in_channel=c * 2, out_channel=c, kernel_size=3, dilation_rate=2, padding=2)
+        self.layer3 = conv(c * 3, c, kernel_size=3, stride=1, padding=1)
 
     def forward(self, x):
         t = x
@@ -370,9 +408,9 @@ class spa_layer(nn.Module):
 class Spa_Fusion(nn.Module):
     def __init__(self, in_chnls=3, ratio=1):
         super(Spa_Fusion, self).__init__()
-        self.conv1 = nn.Conv2d(2, 1, 3, padding=1, bias=False)
-        self.conv2 = nn.Conv2d(2, 1, 3, padding=1, bias=False)
-        self.conv3 = nn.Conv2d(2, 1, 3, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(2, 1, 3, padding=1, bias=False, dilation=1)
+        self.conv2 = nn.Conv2d(2, 1, 3, padding=1, bias=False, dilation=1)
+        self.conv3 = nn.Conv2d(2, 1, 3, padding=1, bias=False, dilation=1)
         self.sigmoid = nn.Sigmoid()
 
         self.compress1 = nn.Conv2d(in_chnls, in_chnls // ratio, 1, 1, 0)
@@ -407,25 +445,25 @@ class Spa_Fusion(nn.Module):
         return x
 
 
-class conv_relu(nn.Module):
-    def __init__(self, in_channel, out_channel, kernel_size=3, padding=1, stride=1):
-        super(conv_relu, self).__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride,
-                      padding=padding, bias=True),
-            nn.LeakyReLU(inplace=True)
-        )
+class conv(nn.Module):
+    def __init__(self, in_channel, out_channel, kernel_size, dilation_rate=1, padding=1, stride=1):
+        super(conv, self).__init__()
+        self.conv = nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride,
+                              padding=padding, bias=True, dilation=dilation_rate)
 
     def forward(self, x_input):
         out = self.conv(x_input)
         return out
 
 
-class conv(nn.Module):
-    def __init__(self, in_channel, out_channel, kernel_size, padding=1, stride=1):
-        super(conv, self).__init__()
-        self.conv = nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride,
-                              padding=padding, bias=True)
+class conv_relu(nn.Module):
+    def __init__(self, in_channel, out_channel, kernel_size, dilation_rate=1, padding=1, stride=1):
+        super(conv_relu, self).__init__()
+        self.conv = nn.Sequential(
+            nn.Conv2d(in_channels=in_channel, out_channels=out_channel, kernel_size=kernel_size, stride=stride,
+                      padding=padding, bias=True, dilation=dilation_rate),
+            nn.ReLU(inplace=True)
+        )
 
     def forward(self, x_input):
         out = self.conv(x_input)

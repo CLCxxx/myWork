@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
 from model.clc_model import model_fn_decorator
-from model.clc_net_1 import Snr_Fusion_Net as my_net
+from model.clc_net_2 import Snr_Fusion_Net as my_net
 from dataset.load_data import *
 from tqdm import tqdm
 from utils.loss_util import *
@@ -107,7 +107,7 @@ def main():
     loss_fn = net_loss(lam=args.LAM, lam_p=args.LAM_P).to(device)
     # create learning rate scheduler
     lr_scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=args.T_0, T_mult=args.T_MULT, eta_min=args.ETA_MIN,
-                                               last_epoch=args.LOAD_EPOCH - 1)
+                                               last_epoch=args.LOAD_EPOCH - 1, stable_lr=args.STABLE_LR)
     # create training function
     model_fn = model_fn_decorator(loss_fn=loss_fn, device=device)
     # create dataset
