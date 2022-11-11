@@ -39,9 +39,9 @@ TEST:
   EVALUATION_COST: False #If True, calculate MACs and Parameters number
 
 SOLVER:
-  EPOCHS: 150 # The total training epochs
-  STABLE_LR: 100 # Learning rate remains unchanged for the epochs nums
-  T_0: 50 # The total epochs for the first learning cycle (learning rate warms up then)
+  EPOCHS: 240 # The total training epochs
+#  STABLE_LR: 0 # Learning rate remains unchanged for the epochs nums
+  T_0: 80 # The total epochs for the first learning cycle (learning rate warms up then)
   T_MULT: 1 # The learning cycle would be (T_0, T_0*T_MULT, T_0*T_MULT^2, T_0*T_MULT^3, ...)
   ETA_MIN: 0.000001 # Initial learning rate in each learning cycle
   BASE_LR: 0.0002 # Learning rate in the end of each learning cycle

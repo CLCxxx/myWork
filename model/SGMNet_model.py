@@ -57,7 +57,7 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         with torch.no_grad():
             st = time.time()
-            out1, out2, out = model(in_img, mask)
+            out = model(in_img, mask)
             cur_time = time.time()-st
             if h_pad != 0:
                out = out[:, :, h_pad:-h_odd_pad, :]
@@ -100,8 +100,8 @@ def model_fn_decorator(loss_fn, device, mode='train'):
 
         mask = torch.clamp(mask, min=0, max=1.0)
         mask = mask.float()
-        out1, out2, out = model(in_img, mask=mask)
-        loss = loss_fn(out1, out2, out, label)
+        out = model(in_img, mask=mask)
+        loss = loss_fn(out, label)
         # save images
         if iters % args.SAVE_ITER == (args.SAVE_ITER - 1):
             in_save = in_img.detach().cpu()

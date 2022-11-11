@@ -11,7 +11,7 @@ from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
 from model.clc_model import model_fn_decorator
-from model.clc_net_2 import Snr_Fusion_Net as my_net
+from model.clc_net_3 import Snr_Fusion_Net as my_net
 from dataset.load_data import *
 from tqdm import tqdm
 from utils.loss_util import *
@@ -104,10 +104,10 @@ def main():
     if args.LOAD_EPOCH:
         learning_rate, iters = load_checkpoint(model, optimizer, args.LOAD_EPOCH)
     # create loss function
-    loss_fn = net_loss(lam=args.LAM, lam_p=args.LAM_P).to(device)
+    loss_fn = net_loss_1(lam=args.LAM, lam_p=args.LAM_P).to(device)
     # create learning rate scheduler
     lr_scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=args.T_0, T_mult=args.T_MULT, eta_min=args.ETA_MIN,
-                                               last_epoch=args.LOAD_EPOCH - 1, stable_lr=args.STABLE_LR)
+                                               last_epoch=args.LOAD_EPOCH - 1)
     # create training function
     model_fn = model_fn_decorator(loss_fn=loss_fn, device=device)
     # create dataset
@@ -124,7 +124,7 @@ def main():
         logger.add_scalar('Train/learning_rate', learning_rate, epoch)
 
         # Save the network per ten epoch
-        if epoch % 10 == 0:
+        if epoch % 2 == 0:
             savefilename = args.NETS_DIR + '/checkpoint' + '_' + '%06d' % epoch + '.tar'
             torch.save({
                 'learning_rate': learning_rate,

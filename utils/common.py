@@ -41,7 +41,7 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
     .. _SGDR\: Stochastic Gradient Descent with Warm Restarts:
         https://arxiv.org/abs/1608.03983
     """
-    def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, last_epoch=-1, stable_lr=50,verbose=False):
+    def __init__(self, optimizer, T_0, T_mult=1, eta_min=0, last_epoch=-1, stable_lr=50, verbose=False):
         if T_0 <= 0 or not isinstance(T_0, int):
             raise ValueError("Expected positive integer T_0, but got {}".format(T_0))
         if T_mult < 1 or not isinstance(T_mult, int):
@@ -58,9 +58,9 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         if not self._get_lr_called_within_step:
             warnings.warn("To get the last learning rate computed by the scheduler, "
                                   "please use `get_last_lr()`.", UserWarning)
-        if self.stable_lr >= 0:
-            self.stable_lr -= 1
-            return [base_lr for base_lr in self.base_lrs]
+        # if self.stable_lr >= 0:
+        #     self.stable_lr -= 1
+        #     return [base_lr for base_lr in self.base_lrs]
         return [self.eta_min + (base_lr - self.eta_min) * (1 + math.cos(math.pi * self.T_cur / self.T_i)) / 2
                 for base_lr in self.base_lrs]
     def step(self, epoch=None):
@@ -96,7 +96,7 @@ class CosineAnnealingWarmRestarts(_LRScheduler):
         else:
             if epoch < 0:
                 raise ValueError("Expected non-negative epoch, but got {}".format(epoch))
-            if self.stable_lr < 0 and epoch >= self.T_0:
+            if epoch >= self.T_0:
                 if self.T_mult == 1:
                     self.T_cur = epoch % self.T_0
                 else:

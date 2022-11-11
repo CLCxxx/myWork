@@ -12,21 +12,24 @@ torch.cuda.current_device()
 
 torch.cuda._initialized = True
 
+
 class multi_VGGPerceptualLoss(torch.nn.Module):
     def __init__(self, lam=1, lam_p=1):
         super(multi_VGGPerceptualLoss, self).__init__()
         self.loss_fn = VGGPerceptualLoss()
         self.lam = lam
         self.lam_p = lam_p
+
     def forward(self, out1, out2, out3, gt1, feature_layers=[2]):
         gt2 = F.interpolate(gt1, scale_factor=0.5, mode='bilinear', align_corners=False)
         gt3 = F.interpolate(gt1, scale_factor=0.25, mode='bilinear', align_corners=False)
-        
-        loss1 = self.lam_p*self.loss_fn(out1, gt1, feature_layers=feature_layers) + self.lam*F.l1_loss(out1, gt1)
-        loss2 = self.lam_p*self.loss_fn(out2, gt2, feature_layers=feature_layers) + self.lam*F.l1_loss(out2, gt2)
-        loss3 = self.lam_p*self.loss_fn(out3, gt3, feature_layers=feature_layers) + self.lam*F.l1_loss(out3, gt3)
-        
-        return loss1+loss2+loss3            
+
+        loss1 = self.lam_p * self.loss_fn(out1, gt1, feature_layers=feature_layers) + self.lam * F.l1_loss(out1, gt1)
+        loss2 = self.lam_p * self.loss_fn(out2, gt2, feature_layers=feature_layers) + self.lam * F.l1_loss(out2, gt2)
+        loss3 = self.lam_p * self.loss_fn(out3, gt3, feature_layers=feature_layers) + self.lam * F.l1_loss(out3, gt3)
+
+        return loss1 + loss2 + loss3
+
 
 class VGGPerceptualLoss(torch.nn.Module):
     def __init__(self, resize=True):
@@ -41,16 +44,16 @@ class VGGPerceptualLoss(torch.nn.Module):
                 p.requires_grad = False
         self.blocks = torch.nn.ModuleList(blocks)
         self.transform = torch.nn.functional.interpolate
-        self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406]).view(1,3,1,1))
-        self.std = torch.nn.Parameter(torch.tensor([0.229, 0.224, 0.225]).view(1,3,1,1))
+        self.mean = torch.nn.Parameter(torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1))
+        self.std = torch.nn.Parameter(torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1))
         self.resize = resize
 
     def forward(self, input, target, feature_layers=[0, 1, 2, 3], style_layers=[]):
         if input.shape[1] != 3:
             input = input.repeat(1, 3, 1, 1)
             target = target.repeat(1, 3, 1, 1)
-        input = (input-self.mean) / self.std
-        target = (target-self.mean) / self.std
+        input = (input - self.mean) / self.std
+        target = (target - self.mean) / self.std
         if self.resize:
             input = self.transform(input, mode='bilinear', size=(224, 224), align_corners=False)
             target = self.transform(target, mode='bilinear', size=(224, 224), align_corners=False)
@@ -70,8 +73,9 @@ class VGGPerceptualLoss(torch.nn.Module):
                 loss += torch.nn.functional.l1_loss(gram_x, gram_y)
         return loss
 
+
 class net_loss(torch.nn.Module):
-    def __init__(self,lam=1,lam_p=1,lam_c=1):
+    def __init__(self, lam=1, lam_p=1, lam_c=1):
         super(net_loss, self).__init__()
         self.charbonnier_loss = CharbonnierLoss()
         self.vggloss = VGGPerceptualLoss()
@@ -79,16 +83,40 @@ class net_loss(torch.nn.Module):
         self.lam = lam
         self.lam_p = lam_p
         self.lam_c = lam_c
-    def forward(self, out1, out2, out ,gt1, feature_layers=[2]):
+
+    def forward(self, out1, out2, out, gt1, feature_layers=[2]):
         gt2 = F.interpolate(gt1, scale_factor=0.5, mode='bilinear', align_corners=False)
         gt3 = F.interpolate(gt1, scale_factor=0.25, mode='bilinear', align_corners=False)
 
-        loss1 = self.lam_p*self.vggloss(out1, gt3, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out1, gt3)
-        loss2 = self.lam_p*self.vggloss(out2, gt2, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out2, gt2)
-        loss3 = self.lam_p*self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam*self.charbonnier_loss(out, gt1)
+        loss1 = self.lam_p * self.vggloss(out1, gt3, feature_layers=feature_layers) + self.lam * self.charbonnier_loss(
+            out1, gt3)
+        loss2 = self.lam_p * self.vggloss(out2, gt2, feature_layers=feature_layers) + self.lam * self.charbonnier_loss(
+            out2, gt2)
+        loss3 = self.lam_p * self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam * self.charbonnier_loss(
+            out, gt1)
 
         # print("charbonnier_loss:%d vgg_loss: %d color_loss:%d", (charbonnier_loss.item(), vgg_loss.item(), color_loss.item()))
-        return loss1+loss2+loss3
+        return loss1 + loss2 + loss3
+
+
+class net_loss_1(torch.nn.Module):
+    def __init__(self, lam=1, lam_p=1, lam_c=1):
+        super(net_loss_1, self).__init__()
+        self.charbonnier_loss = CharbonnierLoss()
+        self.vggloss = VGGPerceptualLoss()
+        self.color_loss = ColorLoss()
+        self.lam = lam
+        self.lam_p = lam_p
+        self.lam_c = lam_c
+
+    def forward(self, out, gt1, feature_layers=[2]):
+        loss = self.lam_p * self.vggloss(out, gt1, feature_layers=feature_layers) + self.lam * self.charbonnier_loss(
+            out, gt1)
+
+        # print("charbonnier_loss:%d vgg_loss: %d color_loss:%d", (charbonnier_loss.item(), vgg_loss.item(), color_loss.item()))
+        return loss
+
+
 class CharbonnierLoss(nn.Module):
     """Charbonnier Loss (L1)"""
 
@@ -101,6 +129,7 @@ class CharbonnierLoss(nn.Module):
         loss = torch.mean(torch.sqrt(diff * diff + self.eps))
         return loss
 
+
 class CharbonnierLoss2(nn.Module):
     """Charbonnier Loss (L1)"""
 
@@ -112,6 +141,7 @@ class CharbonnierLoss2(nn.Module):
         diff = x - y
         loss = torch.mean(torch.sqrt(diff * diff + self.eps))
         return loss
+
 
 def get_gaussian_kernel(kernel_size=3, sigma=2, channels=3):
     # Create a x, y coordinate grid of shape (kernel_size, kernel_size, 2)
@@ -146,11 +176,14 @@ def get_gaussian_kernel(kernel_size=3, sigma=2, channels=3):
     gaussian_filter.weight.requires_grad = False
 
     return gaussian_filter
+
+
 class ColorLoss(nn.Module):
     def __init__(self):
         super(ColorLoss, self).__init__()
         self.blur_layer = get_gaussian_kernel()
         self.criterion1 = torch.nn.MSELoss()
+
     def forward(self, x1, x2):
         x1 = self.blur_layer(x1)
         x2 = self.blur_layer(x2)

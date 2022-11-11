@@ -33,11 +33,11 @@ class Snr_Fusion_Net(nn.Module):
         y1, y2, y = self.sub_encoder(l1_fea_1)
         y1, y2, y = self.sub_decoder(y1, y2, y)
 
-        fea1 = self.fusion_module1(x1, y1, mask)
-        fea2 = self.fusion_module2(x2, y2, mask)
+        # fea1 = self.fusion_module1(x1, y1, mask)
+        # fea2 = self.fusion_module2(x2, y2, mask)
         fea = self.fusion_module(x, y, mask)
 
-        return fea1, fea2, fea
+        return fea
 
     def _initialize_weights(self):
         for m in self.modules():
@@ -117,7 +117,7 @@ class full_encoder(nn.Module):
     def __init__(self, in_channel=3):
         super(full_encoder, self).__init__()
 
-        self.encoder_layer1 = full_encoder_level(in_channel=32, out_channel=64, eca_num=0)
+        self.encoder_layer1 = full_encoder_level(in_channel=32, out_channel=64, eca_num=1)
         self.encoder_layer2 = full_encoder_level(in_channel=64, out_channel=128, eca_num=0)
         self.encoder_layer3 = full_encoder_level(in_channel=128, out_channel=256, eca_num=0)
 
@@ -182,7 +182,7 @@ class full_decoder(nn.Module):
         self.ca3 = CA(in_channel=64)
         self.full_decoder_layer1 = full_decoder_level(in_channel=256, out_channel=128, eca_num=0)
         self.full_decoder_layer2 = full_decoder_level(in_channel=128, out_channel=64, eca_num=0)
-        self.full_decoder_layer3 = full_decoder_level(in_channel=64, out_channel=32, eca_num=1)
+        self.full_decoder_layer3 = full_decoder_level(in_channel=64, out_channel=32, eca_num=2)
 
     def forward(self, x1, x2, x):
         x = self.ca1(x)
@@ -229,7 +229,7 @@ class sub_encoder(nn.Module):
     def __init__(self):
         super(sub_encoder, self).__init__()
 
-        self.sub_encoder_layer1 = sub_encoder_level(in_channel=32, out_channel=64, spa_num=0)
+        self.sub_encoder_layer1 = sub_encoder_level(in_channel=32, out_channel=64, spa_num=1)
         self.sub_encoder_layer2 = sub_encoder_level(in_channel=64, out_channel=128, spa_num=0)
         self.sub_encoder_layer3 = sub_encoder_level(in_channel=128, out_channel=256, spa_num=0)
 
@@ -279,7 +279,7 @@ class sub_decoder(nn.Module):
 
         self.sub_decoder_layer1 = sub_decoder_layer(in_channel=256, out_channel=128, spa_num=0)
         self.sub_decoder_layer2 = sub_decoder_layer(in_channel=128, out_channel=64, spa_num=0)
-        self.sub_decoder_layer3 = sub_decoder_layer(in_channel=64, out_channel=32, spa_num=1)
+        self.sub_decoder_layer3 = sub_decoder_layer(in_channel=64, out_channel=32, spa_num=2)
 
     def forward(self, x1, x2, x):
         x = self.ca1(x)
