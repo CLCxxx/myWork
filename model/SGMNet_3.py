@@ -117,7 +117,7 @@ class full_encoder(nn.Module):
     def __init__(self, in_channel=3):
         super(full_encoder, self).__init__()
 
-        self.encoder_layer1 = full_encoder_level(in_channel=32, out_channel=64, eca_num=1)
+        self.encoder_layer1 = full_encoder_level(in_channel=32, out_channel=64, eca_num=2)
         self.encoder_layer2 = full_encoder_level(in_channel=64, out_channel=128, eca_num=0)
         self.encoder_layer3 = full_encoder_level(in_channel=128, out_channel=256, eca_num=0)
 
@@ -229,7 +229,7 @@ class sub_encoder(nn.Module):
     def __init__(self):
         super(sub_encoder, self).__init__()
 
-        self.sub_encoder_layer1 = sub_encoder_level(in_channel=32, out_channel=64, spa_num=1)
+        self.sub_encoder_layer1 = sub_encoder_level(in_channel=32, out_channel=64, spa_num=2)
         self.sub_encoder_layer2 = sub_encoder_level(in_channel=64, out_channel=128, spa_num=0)
         self.sub_encoder_layer3 = sub_encoder_level(in_channel=128, out_channel=256, spa_num=0)
 

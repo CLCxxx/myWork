@@ -12,8 +12,8 @@ import torch.nn as nn
 from tensorboardX import SummaryWriter
 import torch.optim as optim
 import os
-from model.clc_model import model_fn_decorator
-from model.clc_net_3 import Snr_Fusion_Net as my_net
+from model.SGMNet_model import model_fn_decorator
+from model.SGMNet_3 import Snr_Fusion_Net as my_net
 from dataset.load_data import *
 from tqdm import tqdm
 from utils.loss_util import *

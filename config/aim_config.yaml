@@ -23,7 +23,7 @@ TRAIN:
   CROP_SIZE: 256 # Set the crop size if LOADER==crop
   RESIZE_SIZE: 256 # Set the resizing size if LOADER==crop
   SAVE_ITER: 2000 # Save training images/results at each SAVE_ITER*n iter
-  LOAD_EPOCH: False # If specify it, loading the corresponding model for resuming training
+  LOAD_EPOCH: 1 # If specify it, loading the corresponding model for resuming training
   NETS_DIR: './out_dir/aim/exp_light/net_checkpoints'
   LAM: 1 # The loss weight for L1 loss
   LAM_P: 1 # The loss weight for perceptual loss
@@ -32,7 +32,7 @@ TRAIN:
 TEST:
   TEST_EPOCH: 150 # Input 'auto' for loading the latest model
   SAVE_IMG: jpg # The file type (e.g., jpg, png) for saving the output image; set False to avoid saving
-  LOAD_PATH: './out_dir/aim/exp_light/net_checkpoints/checkpoint_latest.tar'
+  LOAD_PATH: './out_dir/aim/exp_light/net_checkpoints/checkpoint_000240.tar'
   #'./checkpoints/aim_checkpoint.tar' # If specify a load path for a checkpoint, TEST_EPOCH will be deprecated
   EVALUATION_METRIC: True # If True, calculate metrics
   EVALUATION_TIME: False # If True, calculate processing time per image; EVALUATION_METRIC will be deprecated for accurate statistics

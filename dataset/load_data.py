@@ -265,11 +265,14 @@ class tip_data_loader(data.Dataset):
 
         moire_imgs = self.composed_transform(moire_imgs)
         labels = self.composed_transform(labels)
-
+        img_nf = moire_imgs.clone().permute(1, 2, 0).numpy() * 255.0
+        img_nf = cv2.blur(img_nf, (5, 5))
+        img_nf = img_nf * 1.0 / 255.0
+        img_nf = torch.Tensor(img_nf).float().permute(2, 0, 1)
         data['in_img'] = moire_imgs
         data['label'] = labels
         data['number'] = number
-
+        data['img_nf'] = img_nf
         return data
 
     def __len__(self):

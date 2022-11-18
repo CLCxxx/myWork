@@ -7,7 +7,7 @@ GENERAL:
 
 DATA:
   DATA_TYPE: TIP # Please specify the type of the dataset (select from AIM/UHDM/FHDMi/TIP)
-  TRAIN_DATASET: '../../../../media/daipl/DataDisk/Datasets/TIP2018/TIP2018/trainData/trainData/trainData' # The training data path, e.g., ./uhdm_data/Train
+  TRAIN_DATASET: './dataset/TIP2018/trainData' # The training data path, e.g., ./uhdm_data/Train
   TEST_DATASET: '../../../../media/daipl/DataDisk/Datasets/TIP2018/TIP2018/testData/testData'# The test data path, e.g., ./uhdm_data/Test
 
 MODEL:
@@ -18,10 +18,10 @@ MODEL:
   SAM_NUMBER: 1 # The number of SAM for each encoder or decoder level; set 1 for our ESDNet, and 2 for ESDNet-L
 
 TRAIN:
-  BATCH_SIZE: 16
-  #LOADER: crop # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
-  #CROP_SIZE: 768 # Set the crop size if LOADER==crop
-  #RESIZE_SIZE: 384 # Set the resizing size if LOADER==crop
+  BATCH_SIZE: 2
+#  LOADER: crop # The loading way for training data, e.g., crop, resize, default; see ./dataset/load_data.py
+#  CROP_SIZE: 768 # Set the crop size if LOADER==crop
+#  RESIZE_SIZE: 384 # Set the resizing size if LOADER==crop
   SAVE_ITER: 500 # Save training images/results at each SAVE_ITER*n iter
   LOAD_EPOCH: False # If specify it, loading the corresponding model for resuming training
   LAM: 1 # The loss weight for L1 loss
@@ -30,7 +30,7 @@ TRAIN:
 TEST:
   TEST_EPOCH: 70 # Input 'auto' for loading the latest model
   SAVE_IMG: False # The file type (e.g., jpg, png) for saving the output image; set False to avoid saving
-  LOAD_PATH: True # If specify a load path for a checkpoint, TEST_EPOCH will be deprecated
+  LOAD_PATH: './out_dir/tip/exp_light/net_checkpoints/checkpoint_latest.tar' # If specify a load path for a checkpoint, TEST_EPOCH will be deprecated
   EVALUATION_METRIC: True # If True, calculate metrics
   EVALUATION_TIME: False # If True, calculate processing time per image; EVALUATION_METRIC will be deprecated for accurate statistics
   EVALUATION_COST: False #If True, calculate MACs and Parameters number
